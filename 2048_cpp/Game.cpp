@@ -223,6 +223,7 @@ void DrawGrid()
 
     DrawScore();
 }
+
 void DrawMain(std::vector<Tile>& tiles)
 {
     // Clear the screen
@@ -248,6 +249,73 @@ void GenerateTiles(std::vector<Tile>& tiles)
         tiles.emplace_back(Tile(2, row, col));
     }
 }
+
+// Вспомогательная функция для получения плитки по координатам
+Tile* getTileAt(std::vector<Tile>& tiles, int row, int col) {
+    for (auto& tile : tiles) {
+        if (tile.row == row && tile.col == col) {
+            return &tile;
+        }
+    }
+    return nullptr; // Если плитка не найдена
+}
+
+std::string EndMove(std::vector<Tile>& tiles, bool canGenerateNextTile = true)
+{
+    // Проверка на заполненность поля
+    if (tiles.size() == 16) {
+        // Проверка на отсутствие возможных перемещений
+        for (const auto& tile : tiles) {
+            // Проверка соседних плиток
+            Tile* nextTile;
+
+            // Проверка влево
+            if (tile.col > 0) {
+                nextTile = getTileAt(tiles, tile.row, tile.col - 1);
+                if (nextTile && tile.value == nextTile->value) {
+                    return "continue"; // Можно объединить
+                }
+            }
+
+            // Проверка вправо
+            if (tile.col < 3) {
+                nextTile = getTileAt(tiles, tile.row, tile.col + 1);
+                if (nextTile && tile.value == nextTile->value) {
+                    return "continue"; // Можно объединить
+                }
+            }
+
+            // Проверка вверх
+            if (tile.row > 0) {
+                nextTile = getTileAt(tiles, tile.row - 1, tile.col);
+                if (nextTile && tile.value == nextTile->value) {
+                    return "continue"; // Можно объединить
+                }
+            }
+
+            // Проверка вниз
+            if (tile.row < 3) {
+                nextTile = getTileAt(tiles, tile.row + 1, tile.col);
+                if (nextTile && tile.value == nextTile->value) {
+                    return "continue"; // Можно объединить
+                }
+            }
+        }
+
+        // Если все ячейки заполнены и нет возможных перемещений
+        return "Lost";
+    }
+
+    // Если поле не заполнено, можно сгенерировать новую плитку
+    if (canGenerateNextTile)
+    {
+        int row, col;
+        std::tie(row, col) = GetRandomPosition(tiles);
+        tiles.emplace_back(Tile(dis(gen) ? 4 : 2, row, col));
+    }
+    return "continue";
+}
+
 int main()
 {
     window = nullptr;
