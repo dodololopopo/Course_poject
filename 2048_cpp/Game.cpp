@@ -316,6 +316,176 @@ std::string EndMove(std::vector<Tile>& tiles, bool canGenerateNextTile = true)
     return "continue";
 }
 
+void SortTiles(std::vector<Tile>& tiles, std::function<bool(const Tile&, const Tile&)> sort_func)
+{
+    std::sort(tiles.begin(), tiles.end(), sort_func);
+}
+
+void UpdateTiles(std::vector<Tile>& tiles, std::vector<Tile>& sorted_tiles)
+{
+    tiles.clear();
+    for (auto& tile : sorted_tiles)
+    {
+        tiles.emplace_back(tile);
+    }
+    DrawMain(tiles);
+}
+
+std::string MoveTiles(std::vector<Tile>& tiles, Direction key, Uint64& frameStart, Uint64& frameTime)
+{
+    bool update = true;
+    bool ceil = false;
+    std::vector<Tile> blocks;
+    int deltaX = 0;
+    int deltaY = 0;
+    bool can_generate_next_tile = false;
+
+    std::function<bool(const Tile&, const Tile&)>  sort_func;
+    std::function<bool(const Tile&)>                boundary_check;
+    std::function<Tile* (const Tile&)>              get_next_tile;
+    std::function<bool(const Tile&, const Tile&)>   merge_check;
+    std::function<bool(const Tile&, const Tile&)>   move_check;
+
+
+    if (key == LEFT)
+    {
+        sort_func = [](const Tile& a, const Tile& b) {return  a.col < b.col; }; // descending
+        boundary_check = [](const Tile& tile) { return tile.col == 0; };
+        get_next_tile = [&](const Tile& tile)->Tile*
+            {
+                for (auto& t : tiles) {
+                    if (t.key == (std::to_string(tile.row) + std::to_string(tile.col - 1))) return &t;
+                }
+                return nullptr;
+            };
+        merge_check = [](const Tile& tile, const Tile& next_tile) {return tile.x > (next_tile.x + MOVE_VEL); };
+        move_check = [](const Tile& tile, const Tile& next_tile) {return tile.x > (next_tile.x + RECT_WIDTH + MOVE_VEL); };
+        ceil = true;
+        deltaX = -MOVE_VEL;
+        deltaY = 0;
+    }
+    else if (key == RIGHT)
+    {
+        sort_func = [](const Tile& a, const Tile& b) {return  a.col > b.col; }; //
+        boundary_check = [](const Tile& tile) {return tile.col == (COLS - 1); };
+        get_next_tile = [&](const Tile& tile)->Tile*
+            {
+                for (auto& t : tiles) {
+                    if (t.key == (std::to_string(tile.row) + std::to_string(tile.col + 1))) return &t;
+                }
+                return nullptr;
+            };
+        merge_check = [](const Tile& tile, const Tile& next_tile) {return tile.x < (next_tile.x - MOVE_VEL); };
+        move_check = [](const Tile& tile, const Tile& next_tile) {return (tile.x + RECT_WIDTH + MOVE_VEL) < next_tile.x; };
+        ceil = false;
+        deltaX = MOVE_VEL;
+        deltaY = 0;
+    }
+    else if (key == UP)
+    {
+        sort_func = [](const Tile& a, const Tile& b) {return  a.row < b.row; };
+        boundary_check = [](const Tile& tile) {return tile.row == 0; };
+        get_next_tile = [&](const Tile& tile)->Tile*
+            {
+                for (auto& t : tiles) {
+                    if (t.key == (std::to_string(tile.row - 1) + std::to_string(tile.col))) return &t;
+                }
+                return nullptr;
+            };
+        merge_check = [](const Tile& tile, const Tile& next_tile) {return tile.y > (next_tile.y + MOVE_VEL); };
+        move_check = [](const Tile& tile, const Tile& next_tile) {return  tile.y > (next_tile.y + RECT_HIGHT + MOVE_VEL); };
+        ceil = true;
+        deltaX = 0;
+        deltaY = -MOVE_VEL;
+    }
+    else if (key == DOWN)
+    {
+        sort_func = [](const Tile& a, const Tile& b) {return  a.row > b.row; }; //
+        boundary_check = [](const Tile& tile) {return tile.row == (ROWS - 1); };
+        get_next_tile = [&](const Tile& tile)->Tile*
+            {
+                for (auto& t : tiles) {
+                    if (t.key == (std::to_string(tile.row + 1) + std::to_string(tile.col))) return &t;
+                }
+                return nullptr;
+            };
+        merge_check = [](const Tile& tile, const Tile& next_tile) {return tile.y < (next_tile.y - MOVE_VEL); };
+        move_check = [](const Tile& tile, const Tile& next_tile) {return (tile.y + RECT_HIGHT + MOVE_VEL) < next_tile.y; };
+        ceil = false;
+        deltaX = 0;
+        deltaY = MOVE_VEL;
+    }
+
+    while (update)
+    {
+        update = false;
+        std::vector<Tile> sorted_tiles = tiles;
+        SortTiles(sorted_tiles, sort_func);
+
+        for (auto it = sorted_tiles.begin(); it != sorted_tiles.end();)
+        {
+            Tile& tile = *it;
+            if (boundary_check(tile)) {
+                ++it;
+                continue;
+            }
+            Tile* next_tile = get_next_tile(tile);
+            if (!next_tile)
+            {
+                tile.move(deltaX, deltaY);
+                can_generate_next_tile = true;
+                ++it;
+            }
+            else if (tile.value == next_tile->value &&
+                std::find_if(blocks.begin(), blocks.end(), [tile](const Tile& t) {return t.key == tile.key; }) == blocks.end() &&
+                std::find_if(blocks.begin(), blocks.end(), [next_tile](const Tile& t) {return t.key == next_tile->key; }) == blocks.end())
+            {
+                if (merge_check(tile, *next_tile)) {
+                    tile.move(deltaX, deltaY);
+                    can_generate_next_tile = true;
+                    ++it;
+                }
+                else {
+                    auto original_tile_it = std::find_if(sorted_tiles.begin(), sorted_tiles.end(), [next_tile](const Tile& t) { return t.key == next_tile->key; });
+                    if (original_tile_it != sorted_tiles.end())
+                    {
+                        original_tile_it->value *= 2; // Update the value in the original `tiles` vector
+                    }
+                    next_tile->value *= 2;
+                    score += next_tile->value;
+                    blocks.push_back(*next_tile);
+                    it = sorted_tiles.erase(it);
+                    update = true;
+                    can_generate_next_tile = true;
+                    continue;
+                }
+            }
+            else if (move_check(tile, *next_tile))
+            {
+                tile.move(deltaX, deltaY);
+                can_generate_next_tile = true;
+                ++it;
+            }
+            else {
+                ++it;
+                continue;
+            }
+            tile.set_pos(ceil);
+            update = true;
+        }
+
+        UpdateTiles(tiles, sorted_tiles);
+
+        // Calculate frame time and introduce a delay if necessary
+        frameTime = SDL_GetTicks() - frameStart; // Time taken to render the frame
+        if (FRAME_DELAY > frameTime) {
+            SDL_Delay((Uint32)(FRAME_DELAY - frameTime)); // Wait for the remaining time
+        }
+    }
+
+    return EndMove(tiles, can_generate_next_tile);
+}
+
 int main()
 {
     window = nullptr;
@@ -364,7 +534,7 @@ int main()
     {
         frameStart = SDL_GetTicks(); // Start time of the frame
         // Check input
-        /*while (SDL_PollEvent(&e))
+        while (SDL_PollEvent(&e))
         {
             if (e.type == SDL_EVENT_QUIT) { running = false; }
             if (e.type == SDL_EVENT_KEY_DOWN)
@@ -402,7 +572,7 @@ int main()
                     }
                 }
             }
-        }*/
+        }
 
         DrawMain(tiles);
 
