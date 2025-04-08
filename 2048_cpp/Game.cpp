@@ -157,3 +157,113 @@ public:
     }
 
 };
+
+int main()
+{
+    window = nullptr;
+    renderer = nullptr;
+    font = nullptr;
+
+    SDL_Init(SDL_INIT_VIDEO);
+    if (!SDL_CreateWindowAndRenderer("2048", WIDTH, WINDOW_HIGHT, 0, &window, &renderer)) {
+        std::cerr << "Window Creation Failed: " << std::endl;
+        SDL_Quit();
+        return -1;
+    }
+
+    if (!TTF_Init())
+    {
+        std::cerr << "SDL_ttf Init Failed: " << std::endl;
+        SDL_Quit();
+        return -1;
+    }
+
+
+    font = TTF_OpenFont("ComicSansMS.ttf", 50);
+    if (!font) {
+        std::cerr << "Failed to Load Font: " << SDL_GetError() << std::endl;
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_Event e;
+    bool running = true;
+    Direction dir = RIGHT;
+
+    // Variables for FPS calculation
+    Uint64 frameStart;
+    Uint64 frameTime;
+
+    std::vector<Tile> tiles;
+    tiles.reserve(16);
+    //GenerateTiles(tiles);
+
+    Gameplay::tutorial();
+    while (running)
+    {
+        frameStart = SDL_GetTicks(); // Start time of the frame
+        // Check input
+        /*while (SDL_PollEvent(&e))
+        {
+            if (e.type == SDL_EVENT_QUIT) { running = false; }
+            if (e.type == SDL_EVENT_KEY_DOWN)
+            {
+                if (e.key.key == SDLK_LEFT)
+                {
+                    if (MoveTiles(tiles, LEFT, frameStart, frameTime) == "Lost") {
+                        Gameplay::lose();
+                        SDL_Quit();
+                        exit(0);
+                    }
+                }
+                if (e.key.key == SDLK_RIGHT)
+                {
+                    if (MoveTiles(tiles, RIGHT, frameStart, frameTime) == "Lost") {
+                        Gameplay::lose();
+                        SDL_Quit();
+                        exit(0);
+                    }
+                }
+                if (e.key.key == SDLK_UP)
+                {
+                    if (MoveTiles(tiles, UP, frameStart, frameTime) == "Lost") {
+                        Gameplay::lose();
+                        SDL_Quit();
+                        exit(0);
+                    }
+                }
+                if (e.key.key == SDLK_DOWN)
+                {
+                    if (MoveTiles(tiles, DOWN, frameStart, frameTime) == "Lost") {
+                        Gameplay::lose();
+                        SDL_Quit();
+                        exit(0);
+                    }
+                }
+            }
+        }*/
+
+        //DrawMain(tiles);
+
+        for (const auto& tile : tiles) {
+            if (tile.value == 2048) {
+                SDL_Delay(1000);
+                Gameplay::win(); // Вызываем функцию победы
+                running = false; // Останавливаем игровой цикл
+                break; // Выходим из цикла, так как мы уже нашли плитку
+            }
+        }
+
+        // Calculate frame time and introduce a delay if necessary
+        frameTime = SDL_GetTicks() - frameStart; // Time taken to render the frame
+        if (FRAME_DELAY > frameTime) {
+            SDL_Delay((Uint32)(FRAME_DELAY - frameTime)); // Wait for the remaining time
+        }
+    }
+
+    return 0;
+
+}
