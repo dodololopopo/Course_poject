@@ -158,6 +158,96 @@ public:
 
 };
 
+std::tuple<int, int> GetRandomPosition(std::vector<Tile> tiles)
+{
+    int row = 0;
+    int col = 0;
+    std::string key;
+    while (true)
+    {
+        row = dist(gen);
+        col = dist(gen);
+        key = std::to_string(row) + std::to_string(col);
+        if (tiles.size() != 0)
+        {
+            if (std::find_if(tiles.begin(), tiles.end(), [&](const Tile& t) {return t.key == key; }) != tiles.end()) continue;
+            else return { row, col };
+        }
+        else
+            break;
+    }
+    return { row, col };
+}
+
+void DrawScore()
+{
+    std::string s = "SCORE " + std::to_string(score);
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, s.c_str(), strlen(s.c_str()), FONT_COLOR);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
+    int textWidth = textSurface->w;
+    int textHeight = textSurface->h;
+
+    SDL_DestroySurface(textSurface);
+
+    SDL_FRect textRect{ 10, HEIGHT + 10, (float)textWidth, (float)textHeight };
+    SDL_RenderTexture(renderer, textTexture, nullptr, &textRect);
+    SDL_DestroyTexture(textTexture);
+}
+
+void DrawGrid()
+{
+    SDL_SetRenderDrawColor(renderer, 187, 173, 160, 255);
+
+    for (int row{ 0 }; row <= ROWS; row++)
+    {
+        int y = row * RECT_WIDTH;
+        SDL_FRect line;
+        line.x = 0;
+        row == 0 ? line.y = (float)y : (row == ROWS ? line.y = (float)(y - 10) : line.y = (float)(y - 5));
+        line.w = WIDTH;
+        line.h = OUTLINE_THIKNESS;
+        SDL_RenderFillRect(renderer, &line);
+    }
+
+    for (int col{ 0 }; col <= COLS; col++)
+    {
+        int x = col * RECT_HIGHT;
+        SDL_FRect line;
+        col == 0 ? line.x = (float)x : (col == COLS ? line.x = (float)(x - 10) : line.x = (float)(x - 5));
+        line.y = 0;
+        line.w = OUTLINE_THIKNESS;
+        line.h = HEIGHT;
+        SDL_RenderFillRect(renderer, &line);
+    }
+
+    DrawScore();
+}
+void DrawMain(std::vector<Tile>& tiles)
+{
+    // Clear the screen
+    SDL_SetRenderDrawColor(renderer, 205, 192, 180, 255);
+    SDL_RenderClear(renderer);
+
+    for (auto tile : tiles)
+    {
+        tile.draw();
+    }
+    DrawGrid();
+    // Display
+    SDL_RenderPresent(renderer);
+
+}
+
+void GenerateTiles(std::vector<Tile>& tiles)
+{
+    for (int _{ 0 }; _ < 2; _++)
+    {
+        int row, col;
+        std::tie(row, col) = GetRandomPosition(tiles);
+        tiles.emplace_back(Tile(2, row, col));
+    }
+}
 int main()
 {
     window = nullptr;
@@ -199,7 +289,7 @@ int main()
 
     std::vector<Tile> tiles;
     tiles.reserve(16);
-    //GenerateTiles(tiles);
+    GenerateTiles(tiles);
 
     Gameplay::tutorial();
     while (running)
@@ -246,7 +336,7 @@ int main()
             }
         }*/
 
-        //DrawMain(tiles);
+        DrawMain(tiles);
 
         for (const auto& tile : tiles) {
             if (tile.value == 2048) {
