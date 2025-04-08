@@ -71,3 +71,89 @@ public:
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Defeat", "You lose!", nullptr);
     }
 };
+
+class Tile : public Gameplay
+{
+public:
+    int value, row, col, x, y;
+    std::string key;
+
+    Tile() {
+    }
+
+    Tile(int value, int row, int col)
+    {
+        this->value = value;
+        this->row = row;
+        this->col = col;
+        this->x = col * RECT_WIDTH;
+        this->y = row * RECT_HIGHT;
+        setKey(row, col);
+    }
+
+    void setKey(int row, int col) {
+        this->key = std::to_string(row) + std::to_string(col);
+    }
+    const int* getColor() const
+    {
+        const int* color;
+        int color_index = static_cast<int>(std::log2(value));
+
+        if (color_index < 9) {
+            color = COLORS[color_index];
+
+        }
+        else {
+            color = COLORS[9];
+        }
+        return color;
+    }
+
+    void draw()
+    {
+        auto color = getColor();
+        SDL_SetRenderDrawColor(renderer, color[0], color[1], color[2], 255);
+        SDL_FRect rect{ (float)x, (float)y, (float)RECT_WIDTH, (float)RECT_HIGHT };
+        SDL_RenderFillRect(renderer, &rect);
+
+        sprintf_s(SValue, "%d", value);
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, SValue, strlen(SValue), FONT_COLOR);
+        SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
+        float textWidth = (float)textSurface->w;
+        float textHeight = (float)textSurface->h;
+
+        SDL_DestroySurface(textSurface);
+
+        SDL_FRect textRect;
+        textRect.x = (float)(x + (RECT_WIDTH / 2 - textWidth / 2));
+        textRect.y = (float)(y + (RECT_HIGHT / 2 - textHeight / 2));
+        textRect.w = textWidth;
+        textRect.h = textHeight;
+        SDL_RenderTexture(renderer, textTexture, nullptr, &textRect);
+        SDL_DestroyTexture(textTexture); // Cleanup
+    }
+
+    void set_pos(bool ceil = false)
+    {
+        if (ceil)
+        {
+            row = (int)std::ceil((double)y / RECT_HIGHT);
+            col = (int)std::ceil((double)x / RECT_WIDTH);
+            setKey(row, col);
+        }
+        else
+        {
+            row = (int)std::floor((double)y / RECT_HIGHT);
+            col = (int)std::floor((double)x / RECT_WIDTH);
+            setKey(row, col);
+        }
+    }
+
+    void move(int deltaX, int deltaY)
+    {
+        x += deltaX;
+        y += deltaY;
+    }
+
+};
